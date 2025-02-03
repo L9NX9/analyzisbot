@@ -1,0 +1,63 @@
+import telebot
+import requests
+from bs4 import BeautifulSoup
+
+bot = telebot.TeleBot('7956307358:AAGr3UDBJjICb2b36jf2kQHvv8RPKT_ZaC8')  # Замените на ваш токен
+
+@bot.message_handler(content_types=['text'])
+def get_text_messages(message):
+    url = message.text
+    try:
+        response = requests.get(url)
+        response.raise_for_status()  # Проверка на ошибки HTTP
+    except requests.exceptions.RequestException as e:
+        bot.send_message(message.chat.id, f"Ошибка при запросе: {e}")
+        return
+
+    bs = BeautifulSoup(response.text, "lxml")
+    inf = bs.find_all('div', class_='compare-bar__bar-left fwb jcc aic')
+
+    if len(inf) < 4:
+        bot.send_message(message.chat.id, "Недостаточно данных на странице")
+        return
+
+    res = 0
+    try:
+        buf = inf[2].text.replace('%', '')
+        buf = int(buf)
+        res += (buf - 50) * 2
+
+        buf = inf[3].text.replace('%', '')
+        buf = int(buf)
+        res += (buf - 50) * 2
+
+        buf = inf[-2].text.replace('%', '')
+        buf = int(buf)
+        if buf == 100:
+            buf = 60
+        res += (buf - 50) * 2
+
+        buf = inf[-1].text.replace('%', '')
+        buf = int(buf)
+        res += (buf - 50) * 2
+
+    except (ValueError, IndexError) as e:
+        bot.send_message(message.chat.id, f"Ошибка при обработке данных: {e}")
+        return
+
+    if res < -90:
+        bot.send_message(message.chat.id, f'го в экспресс команду 2 (шансы: {res})')
+    elif res < -50:
+        bot.send_message(message.chat.id, f'скорее всего победит команда 2 (шансы: {res})')
+    elif res < -10:
+        bot.send_message(message.chat.id, f'кажется шансов больше у команды 2, но лучше не ставить (шансы: {res})')
+    elif -10 <= res <= 10:
+        bot.send_message(message.chat.id, f'думаю тут ТБ 2.5 (шансы: {res})')
+    elif res > 90:
+        bot.send_message(message.chat.id, f'го в экспресс команду 1 (шансы: {res})')
+    elif res > 50:
+        bot.send_message(message.chat.id, f'скорее всего победит команда 1 (шансы: {res})')
+    elif res > 10:
+        bot.send_message(message.chat.id, f'кажется шансов больше у команды 1, но лучше не ставить (шансы: {res})')
+
+bot.polling(none_stop=True, interval=0)
